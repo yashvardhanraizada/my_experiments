@@ -9,6 +9,7 @@ Prototype code pieces from my personal database experiments.
 
 ```bash
 sudo service redis-server start
+sudo service redis-server restart
 ```
 
 4. In your own terminal, use the following commands to run the experiment.
