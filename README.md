@@ -18,3 +18,11 @@ sudo service redis-server restart
 cd debouncing_and_load_leaking
 go run main.go
 ```
+
+To access redis.conf file, use the following commands on WSL:
+
+```bash
+sudo -s
+cd /etc/redis
+nano redis.conf
+```

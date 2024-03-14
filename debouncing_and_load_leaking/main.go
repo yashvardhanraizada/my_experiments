@@ -9,6 +9,11 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+var (
+	redisCache *redis.Client
+	mySqlDb    *sql.DB
+)
+
 func connectMySQL() {
 	// Open a connection to the MySQL database
 	db, err := sql.Open("mysql", "dllexpuser:dllexppwd@tcp(127.0.0.1:3306)/dll_experiment")
@@ -16,7 +21,7 @@ func connectMySQL() {
 		fmt.Println("Error opening database:", err)
 		return
 	}
-	defer db.Close()
+	//defer db.Close()
 
 	// Ping the database to check if it's reachable
 	err = db.Ping()
@@ -26,9 +31,11 @@ func connectMySQL() {
 	}
 	fmt.Println("Connected to MySQL database")
 
+	mySqlDb = db
+
 	// Perform database operations
 	// For example, querying data from a table
-	rows, err := db.Query("SELECT * FROM keyvalue")
+	/*rows, err := db.Query("SELECT * FROM keyvalue")
 	if err != nil {
 		fmt.Println("Error querying database:", err)
 		return
@@ -49,7 +56,16 @@ func connectMySQL() {
 	if err = rows.Err(); err != nil {
 		fmt.Println("Error iterating over rows:", err)
 		return
-	}
+	}*/
+
+	/*for i := 100; i < 10000; i++ {
+		// Insert data into the table
+		_, err = db.Exec("INSERT INTO keyvalue (`key`, `value`) VALUES (?, ?)", fmt.Sprintf("key_%d", i), fmt.Sprintf("value_%d", i))
+		if err != nil {
+			fmt.Println("Error inserting into database:", err)
+			return
+		}
+	}*/
 }
 
 func connectRedis() {
@@ -68,8 +84,10 @@ func connectRedis() {
 	}
 	fmt.Println("Connected to Redis:", pong)
 
+	redisCache = rdb
+
 	// Use the Redis client to perform operations
-	err = rdb.Set(context.Background(), "key", "value", 0).Err()
+	/*err = rdb.Set(context.Background(), "key", "value", 0).Err()
 	if err != nil {
 		fmt.Println("Error setting key:", err)
 		return
@@ -80,7 +98,42 @@ func connectRedis() {
 		fmt.Println("Error getting value for key:", err)
 		return
 	}
-	fmt.Println("Value for key:", val)
+	fmt.Println("Value for key:", val)*/
+}
+
+func getKeyValueFromDB(key string) string {
+	var value string
+	err := mySqlDb.QueryRow("SELECT `value` FROM keyvalue WHERE `key` = ?", key).Scan(&value)
+	if err != nil {
+		fmt.Println("Error querying database:", err)
+		return ""
+	}
+
+	return value
+}
+
+func getKeyValue(key string) string {
+	val, err := redisCache.Get(context.Background(), key).Result()
+
+	if err != nil {
+		fmt.Println("Error getting value for key from cache: ", err)
+		fmt.Println("Getting value for key from the database")
+
+		val = getKeyValueFromDB(key)
+
+		if val == "" {
+			return ""
+		}
+
+		fmt.Println("Setting value for key in cache")
+		err = redisCache.Set(context.Background(), key, val, 0).Err()
+
+		if err != nil {
+			fmt.Println("Error setting key: ", err)
+		}
+	}
+
+	return val
 }
 
 func main() {
@@ -89,4 +142,18 @@ func main() {
 	fmt.Println("Connection to Redis worked")
 	connectMySQL()
 	fmt.Println("Connection to MySQL worked")
+	defer mySqlDb.Close()
+	fmt.Println("-------------------------")
+
+	for i := 9887; i < 9888; i++ {
+		val := getKeyValue("key_" + fmt.Sprintf("%d", i))
+
+		if val == "" {
+			fmt.Println("Key not found, or some error occurred.")
+		} else {
+			fmt.Println("Value for key: "+"key_"+fmt.Sprintf("%d", i)+" =", val)
+		}
+
+		fmt.Println("-------------------------")
+	}
 }
