@@ -33,7 +33,7 @@ mysql> grant all on dll_experiment.* to 'dllexpuser'@'%';
 
 6. Set your connection string in the main.go file as per your database and user setup.
 7. Create a simple key, value store table, say "keyvalue" and push some data to it. Say 10000 rows.
-8. Set maxmemory and maxmemory-policy params to "1100000" and "allkeys-lru" in the redis.conf file on your WSL to set a limit on the number of keys your cache can store and to setup an eviction policy for keys, which in our case is LRU for all keys.
+8. Set maxmemory and maxmemory-policy params to "1100000" (size in bytes) and "allkeys-lru" (policy name) in the redis.conf file on your WSL to set a limit on the amount of memory the cache can use (indirectly limiting the number of keys our cache can store) and to setup an eviction policy for keys (which in our case is LRU for all keys), respectively.
 9. Now, in your own terminal, use the following commands to run the experiment.
 
 ```bash
