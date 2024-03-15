@@ -9,7 +9,6 @@ Prototype code pieces from my personal database experiments.
 
 ```bash
 sudo service redis-server start
-sudo service redis-server restart
 ```
 
 4. In your own terminal, use the following commands to run the experiment.
@@ -25,4 +24,19 @@ To access redis.conf file, use the following commands on WSL:
 sudo -s
 cd /etc/redis
 nano redis.conf
+```
+After making changes to redis.conf, don't forget to restart redis-server:
+
+```bash
+sudo service redis-server restart
+```
+
+You can access redis keys and conf params via redis-cli:
+
+```bash
+redis-cli
+PING // to test if server up and running
+KEYS * // to get a view of all the keys in cache
+config get param // to get the value of a param from redis.conf
+config set param value // to set a value to a param of redis.conf temporarily
 ```
