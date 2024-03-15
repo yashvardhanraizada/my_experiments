@@ -1,7 +1,7 @@
 # db_experiments
 Prototype code pieces from my personal database experiments.
 
-### Debouncing and Load Leaking:
+### Load Leaking:
 
 1. This requires WSL2, Ubuntu on your Windows machine. Set it up.
 2. Download, install and setup Redis on Ubuntu WSL.
@@ -15,7 +15,7 @@ sudo service redis-server restart
 4. In your own terminal, use the following commands to run the experiment.
 
 ```bash
-cd debouncing_and_load_leaking
+cd load_leaking
 go run main.go
 ```
 

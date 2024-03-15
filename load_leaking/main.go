@@ -14,12 +14,12 @@ var (
 	mySqlDb    *sql.DB
 )
 
-func connectMySQL() {
+func connectMySQL() bool {
 	// Open a connection to the MySQL database
 	db, err := sql.Open("mysql", "dllexpuser:dllexppwd@tcp(127.0.0.1:3306)/dll_experiment")
 	if err != nil {
 		fmt.Println("Error opening database:", err)
-		return
+		return false
 	}
 	//defer db.Close()
 
@@ -27,10 +27,10 @@ func connectMySQL() {
 	err = db.Ping()
 	if err != nil {
 		fmt.Println("Error connecting to database:", err)
-		return
+		return false
 	}
-	fmt.Println("Connected to MySQL database")
 
+	fmt.Println("Connected to MySQL database")
 	mySqlDb = db
 
 	// Perform database operations
@@ -66,9 +66,11 @@ func connectMySQL() {
 			return
 		}
 	}*/
+
+	return true
 }
 
-func connectRedis() {
+func connectRedis() bool {
 	// Create a new Redis client
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379", // Assuming Redis is running on the default port
@@ -77,13 +79,13 @@ func connectRedis() {
 	})
 
 	// Ping the Redis server to check if it's reachable
-	pong, err := rdb.Ping(context.Background()).Result()
+	_, err := rdb.Ping(context.Background()).Result()
 	if err != nil {
 		fmt.Println("Error connecting to Redis:", err)
-		return
+		return false
 	}
-	fmt.Println("Connected to Redis:", pong)
 
+	fmt.Println("Connected to Redis cache")
 	redisCache = rdb
 
 	// Use the Redis client to perform operations
@@ -99,17 +101,19 @@ func connectRedis() {
 		return
 	}
 	fmt.Println("Value for key:", val)*/
+
+	return true
 }
 
 func getKeyValueFromDB(key string) string {
-	var value string
-	err := mySqlDb.QueryRow("SELECT `value` FROM keyvalue WHERE `key` = ?", key).Scan(&value)
+	var val string
+	err := mySqlDb.QueryRow("SELECT `value` FROM keyvalue WHERE `key` = ?", key).Scan(&val)
 	if err != nil {
 		fmt.Println("Error querying database:", err)
 		return ""
 	}
 
-	return value
+	return val
 }
 
 func getKeyValue(key string) string {
@@ -137,15 +141,22 @@ func getKeyValue(key string) string {
 }
 
 func main() {
-	fmt.Println("Hello World!")
-	connectRedis()
-	fmt.Println("Connection to Redis worked")
-	connectMySQL()
-	fmt.Println("Connection to MySQL worked")
-	defer mySqlDb.Close()
+	fmt.Println("-------------------------")
+	fmt.Println("Welcome to Load Leaking experiment!")
 	fmt.Println("-------------------------")
 
-	for i := 9887; i < 9888; i++ {
+	if !connectRedis() || !connectMySQL() {
+		fmt.Println("Startup failed. Exiting...")
+		return
+	}
+
+	defer mySqlDb.Close()
+
+	fmt.Println("-------------------------")
+	fmt.Println("Starting operations...")
+	fmt.Println("-------------------------")
+
+	for i := 5000; i < 5100; i++ {
 		val := getKeyValue("key_" + fmt.Sprintf("%d", i))
 
 		if val == "" {
@@ -156,4 +167,8 @@ func main() {
 
 		fmt.Println("-------------------------")
 	}
+
+	fmt.Println("Ending operations...")
+	fmt.Println("Bye bye!")
+	fmt.Println("-------------------------")
 }
