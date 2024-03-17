@@ -4,14 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
+	"math/rand"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 var (
-	redisCache *redis.Client
-	mySqlDb    *sql.DB
+	redisCache    *redis.Client
+	mySqlDb       *sql.DB
+	keysFromCache int
 )
 
 func connectMySQL() bool {
@@ -107,21 +111,23 @@ func connectRedis() bool {
 
 func getKeyValueFromDB(key string) string {
 	var val string
-	err := mySqlDb.QueryRow("SELECT `value` FROM keyvalue WHERE `key` = ?", key).Scan(&val)
+	err := mySqlDb.QueryRow("SELECT first_name FROM employees WHERE emp_no = ?", key).Scan(&val)
 	if err != nil {
-		fmt.Println("Error querying database:", err)
+		//fmt.Println("Error querying database:", err)
 		return ""
 	}
 
 	return val
+
+	// 10001 -> 499999
 }
 
 func getKeyValue(key string) string {
 	val, err := redisCache.Get(context.Background(), key).Result()
 
 	if err != nil {
-		fmt.Println("Error getting value for key from cache: ", err)
-		fmt.Println("Getting value for key from the database")
+		//fmt.Println("Error getting value for key from cache: ", err)
+		//fmt.Println("Getting value for key from the database")
 
 		val = getKeyValueFromDB(key)
 
@@ -129,12 +135,14 @@ func getKeyValue(key string) string {
 			return ""
 		}
 
-		fmt.Println("Setting value for key in cache")
+		//fmt.Println("Setting value for key in cache")
 		err = redisCache.Set(context.Background(), key, val, 0).Err()
 
 		if err != nil {
-			fmt.Println("Error setting key: ", err)
+			//fmt.Println("Error setting key: ", err)
 		}
+	} else {
+		keysFromCache++
 	}
 
 	return val
@@ -156,18 +164,58 @@ func main() {
 	fmt.Println("Starting operations...")
 	fmt.Println("-------------------------")
 
-	for i := 5000; i < 5100; i++ {
-		val := getKeyValue("key_" + fmt.Sprintf("%d", i))
+	rand.Seed(time.Now().UnixNano())
+	rangeMin := 10001
+	rangeMax := 100001
 
-		if val == "" {
+	iterations := 1000000
+	iterations_jump := iterations / 10
+	iterations_chunk_count := -1
+	keysFromCache = 0
+
+	isLoadLeakEnabled := true
+	loadLeakPercentage := 20.0
+	loadLeakJump := int(math.Round(float64(100.0 / loadLeakPercentage)))
+
+	startTime := time.Now()
+
+	for i := 0; i < iterations; i++ {
+		randomIndex := rand.Intn(rangeMax-rangeMin+1) + rangeMin
+		getKeyValue(fmt.Sprintf("%d", randomIndex))
+
+		if isLoadLeakEnabled && (i%loadLeakJump == 0) {
+			go getKeyValueFromDB(fmt.Sprintf("%d", randomIndex))
+		}
+
+		if i%iterations_jump == 0 {
+			iterations_chunk_count++
+			fmt.Println("Completed", iterations_chunk_count*10, "% of the total iterations")
+		}
+
+		//val := getKeyValue("key_" + fmt.Sprintf("%d", i))
+
+		/*if val == "" {
 			fmt.Println("Key not found, or some error occurred.")
 		} else {
 			fmt.Println("Value for key: "+"key_"+fmt.Sprintf("%d", i)+" =", val)
 		}
 
-		fmt.Println("-------------------------")
+		fmt.Println("-------------------------")*/
 	}
 
+	duration := time.Since(startTime)
+
+	fmt.Println("Total queries:", iterations)
+	fmt.Println("Queries answered from cache:", keysFromCache)
+	fmt.Println("Queries answered from database:", iterations-keysFromCache)
+	fmt.Println("Load leaking enabled:", isLoadLeakEnabled)
+	if isLoadLeakEnabled {
+		fmt.Println("Load leaking percentage:", loadLeakPercentage)
+	}
+	fmt.Println("Total time taken by all the queries:", duration.Microseconds(), "microseconds")
+	fmt.Println("Average time taken by one single query:", float64(duration.Microseconds())/float64(iterations), "microseconds")
+
+	fmt.Println("-------------------------")
 	fmt.Println("Ending operations...")
 	fmt.Println("Bye bye!")
 	fmt.Println("-------------------------")
