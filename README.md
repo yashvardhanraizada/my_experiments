@@ -1,5 +1,5 @@
 # my_experiments
-Prototype code pieces from my personal database experiments.
+Prototype code pieces from my personal engineering experiments.
 
 ### Load Leaking
 An experiment to explore and demonstrate as to how leaking a random proportion (say 20%) of your read query load deliberately to database (even if the key is present in your cache) in a typical setup of Server - Cache - Database can help you reduce overall average response times of the system.
